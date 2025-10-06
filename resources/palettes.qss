@@ -1,0 +1,94 @@
+/* Sophisticated dark theme with accent highlights */
+QWidget {
+    background-color: #1c1f2b;
+    color: #f2f4f8;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+}
+
+QToolBar {
+    background: #23283b;
+    border: none;
+    padding: 6px;
+}
+
+QToolButton {
+    background: transparent;
+    border-radius: 6px;
+    padding: 6px 10px;
+}
+
+QToolButton:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+QPushButton {
+    background-color: #3f51b5;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+}
+
+QPushButton:hover {
+    background-color: #5c6bc0;
+}
+
+QPushButton:disabled {
+    background-color: #2b2f40;
+    color: #7a7f9a;
+}
+
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+    background-color: #23283b;
+    border: 1px solid #2e3350;
+    border-radius: 6px;
+    padding: 6px 10px;
+}
+
+QTreeWidget, QListWidget, QTextEdit {
+    background-color: #202435;
+    border: 1px solid #292d45;
+    border-radius: 8px;
+    padding: 6px;
+}
+
+QHeaderView::section {
+    background-color: #262a3c;
+    color: #ccd2eb;
+    padding: 6px;
+    border: none;
+}
+
+QProgressBar {
+    background-color: #202435;
+    border: 1px solid #2b3048;
+    border-radius: 6px;
+    text-align: center;
+}
+
+QProgressBar::chunk {
+    background-color: #26c6da;
+    border-radius: 4px;
+}
+
+QSplitter::handle {
+    width: 6px;
+    background-color: #2b3048;
+}
+
+QTabWidget::pane {
+    border: 1px solid #2e3350;
+    border-radius: 8px;
+    background-color: #1f2233;
+}
+
+QTabBar::tab {
+    background-color: transparent;
+    padding: 8px 18px;
+    border-bottom: 2px solid transparent;
+}
+
+QTabBar::tab:selected {
+    border-bottom: 2px solid #26c6da;
+}

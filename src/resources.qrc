@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/theme">
+        <file alias="palettes.qss">../resources/palettes.qss</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file alias="folder.svg">../resources/icons/folder.svg</file>
+        <file alias="play.svg">../resources/icons/play.svg</file>
+        <file alias="export.svg">../resources/icons/export.svg</file>
+        <file alias="reset.svg">../resources/icons/reset.svg</file>
+    <file alias="app.png">../resources/icons/app_icon.png</file>
+        <file alias="evaluate.svg">../resources/icons/evaluate.svg</file>
+    </qresource>
+</RCC>
