@@ -12,9 +12,14 @@ if (Test-Path $BuildDir) {
     Remove-Item -Recurse -Force $BuildDir
 }
 
-function Detect-QtPrefix {
+function Get-QtPrefix {
     param([string]$Existing)
-    if ($Existing) { return $Existing }
+    if ($Existing) {
+        if (Test-Path $Existing) {
+            return (Resolve-Path $Existing)
+        }
+        Write-Warning "提供的 Qt 前缀路径不存在：$Existing，尝试自动检测"
+    }
 
     function Resolve-QtPrefixFromExe {
         param([string]$ExePath)
@@ -85,7 +90,7 @@ function Convert-ToCMakePath {
     return ($Path -replace '\\', '/')
 }
 
-$qtPrefix = Detect-QtPrefix -Existing $env:QT_PREFIX_PATH
+$qtPrefix = Get-QtPrefix -Existing $env:QT_PREFIX_PATH
 $windeploy = Join-Path $qtPrefix 'bin/windeployqt.exe'
 if (-not (Test-Path $windeploy)) {
     $altWindeploy = Join-Path $qtPrefix 'tools/Qt6/bin/windeployqt.exe'

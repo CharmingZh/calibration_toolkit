@@ -38,39 +38,22 @@ the GUI.
 ### Windows（Visual Studio 17 2022）
 
 ```powershell
-Set-Location .\my_calib
-cmake -S . -B build\win-release `
-  -G "Visual Studio 17 2022" `
-  -DCMAKE_BUILD_TYPE=Release
-cmake --build build\win-release --config Release
-
-# 将 Qt 运行时部署到可执行文件旁，便于任意机器运行
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\deploy_windows_runtime.ps1 -BinaryDir build\win-release\Release
-
-# 打包为可分发 ZIP（包含 Qt/OpenCV/MSVC 运行库，以及 config/ 默认配置）
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\package_windows.ps1 -Config Release
+pwsh -NoProfile -ExecutionPolicy Bypass -File tools\package_windows.ps1
 ```
 
-上述流程会在 `build\\package-win\\` 下生成 `Calib Evaluator-<版本>-win64.zip`，解压后即可在未安装 Qt、OpenCV 或 VC Runtime 的 Windows 10/11 机器上直接运行。
+脚本会自动：
 
-#### 命令说明（Windows）
-
-1. `Set-Location .\my_calib`：将终端切换到项目根目录；如果你已经在该目录，可忽略此行。
-2. `cmake -S . -B build\win-release ...`：生成 Visual Studio 2022 Release 工程，并在配置阶段探测 Qt / OpenCV / Vimba X SDK。
-3. `cmake --build build\win-release --config Release`：调用 MSBuild 编译可执行文件，输出位于 `build\win-release\Release`。
-4. `deploy_windows_runtime.ps1`：把 Qt、OpenCV 以及 MSVC 运行时 DLL 拷贝到可执行文件旁，确保离线机器能直接运行。
-5. `package_windows.ps1`：在现有构建基础上打包 ZIP（若安装 NSIS 也会生成安装器），便于发布给其他用户。
+- 配置并编译 `Release` 版本（使用 `build\package-win\` 作为隔离构建目录）。
+- 调用 `windeployqt`、复制 Qt/OpenCV/MSVC 运行库，并同步 `config/`。
+- 生成可直接分发的 ZIP（以及可选 NSIS 安装器），产物在 `build\package-win\` 下。
 
 ### macOS（Apple clang + Qt frameworks）
 
 ```bash
-cd my_calib
-./tools/package_macos.sh  # 会自动把 config/ 同步到 app Resources/config
+./tools/package_macos.sh
 ```
 
-脚本会自动检测 Qt 前缀、构建 Release 版本、调用 `macdeployqt` 与 CMake `fixup_bundle`，最后在 `build/package-mac/` 目录内输出 `.app`、`.dmg` 等便于分发的产物。若未能自动识别 Qt，请先设置 `QT_PREFIX_PATH`。
-
-`package_macos.sh` 会顺序完成 CMake 配置、构建、运行 `macdeployqt`、BundleUtilities 修复依赖以及 `cpack` 打包，无需额外命令；只要提前设置好 `QT_PREFIX_PATH`（或保证 `qtpaths6` 在 `PATH` 中）即可直接得到可分发 artefact。
+该脚本同样会在独立目录 `build/package-mac/` 中完成配置、构建、`macdeployqt`、依赖修复与 `.app/.dmg` 打包，确保产物可直接拷贝到任意机器运行。
 
 Optional flags:
 
