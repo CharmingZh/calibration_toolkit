@@ -100,6 +100,15 @@ MACDEPLOY_ARGS=(
 
 "${MACDEPLOYQT_BIN}" "${APP_BUNDLE}" "${MACDEPLOY_ARGS[@]}"
 
+CONFIG_SRC="${PROJECT_ROOT}/config"
+CONFIG_DEST="${APP_BUNDLE}/Contents/Resources/config"
+if [[ -d "${CONFIG_SRC}" ]]; then
+  echo "[package] 同步配置目录到应用资源..."
+  rm -rf "${CONFIG_DEST}"
+  mkdir -p "${CONFIG_DEST}"
+  cp -R "${CONFIG_SRC}/." "${CONFIG_DEST}/"
+fi
+
 echo "[package] 运行 BundleUtilities 修复额外依赖..."
 FIXUP_SCRIPT="${BUILD_DIR}/fixup_bundle.cmake"
 SEARCH_DIRS="$(discover_search_dirs)"

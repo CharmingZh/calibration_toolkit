@@ -1,7 +1,5 @@
 # MyCalib GUI (C++/Qt)
 
-> 自 v0.9 起：连接 Allied Vision 相机时会自动载入 `config/` 目录中的默认配置（优先匹配摄像机 ID 的 XML），并在剥离打包产物时拷贝该目录；示例代码位于 `example_code/`，已默认从 Git 版本控制中忽略。
-
 An interactive Qt 6 + OpenCV application that mirrors the calibration workflow from the Python
 pipeline while adding a polished desktop experience. The tool performs board detection,
 robust calibration, outlier filtering, cross-validation, and generates heatmaps directly within
@@ -20,7 +18,6 @@ the GUI.
 - **Extensible C++ core**: modular classes (`CalibrationEngine`, `HeatmapGenerator`, `ImageLoader`)
   are standalone and can be reused in headless tools.
 - **全新应用图标**：采用专属彩色棋盘 Logo，Qt 窗口、macOS Bundle 与 Windows 可执行文件均已统一展示。
-- **Coverage-aware workflow**：九宫格规划器现在常驻样本页左侧，本地图片模式会在标定完成后自动映射检测结果，随时检查覆盖率与姿态分布。
 
 ## 📦 Requirements
 
@@ -30,12 +27,8 @@ the GUI.
 - A C++20 capable compiler (GCC 11+, Clang 12+, MSVC 19.3+)
 - Python ≥ 3.9 with the original calibration environment (numpy, OpenCV, etc.) — the GUI
   invokes the reference Python pipeline for board detection to stay 100% compatible.
-  
-> **相机驱动配置**：若 `config/` 下存在 `*.xml`（例如 `config/test_config_1.xml`），应用会在连接相机后尝试匹配 `CameraInfo@Id` 并写回相机特性；只读特性会被跳过并记录到调试日志。
 
 ## 🛠 Build & Run
-
-### Windows（Visual Studio 17 2022）
 
 ```powershell
 Set-Location .\my_calib
@@ -43,60 +36,36 @@ cmake -S . -B build\win-release `
   -G "Visual Studio 17 2022" `
   -DCMAKE_BUILD_TYPE=Release
 cmake --build build\win-release --config Release
-
-# 将 Qt 运行时部署到可执行文件旁，便于任意机器运行
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\deploy_windows_runtime.ps1 -BinaryDir build\win-release\Release
-
-# 打包为可分发 ZIP（包含 Qt/OpenCV/MSVC 运行库，以及 config/ 默认配置）
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\package_windows.ps1 -Config Release
+.\build\win-release\Release\my_calib_gui.exe
 ```
-
-上述流程会在 `build\\package-win\\` 下生成 `Calib Evaluator-<版本>-win64.zip`，解压后即可在未安装 Qt、OpenCV 或 VC Runtime 的 Windows 10/11 机器上直接运行。
-
-#### 命令说明（Windows）
-
-1. `Set-Location .\my_calib`：将终端切换到项目根目录；如果你已经在该目录，可忽略此行。
-2. `cmake -S . -B build\win-release ...`：生成 Visual Studio 2022 Release 工程，并在配置阶段探测 Qt / OpenCV / Vimba X SDK。
-3. `cmake --build build\win-release --config Release`：调用 MSBuild 编译可执行文件，输出位于 `build\win-release\Release`。
-4. `deploy_windows_runtime.ps1`：把 Qt、OpenCV 以及 MSVC 运行时 DLL 拷贝到可执行文件旁，确保离线机器能直接运行。
-5. `package_windows.ps1`：在现有构建基础上打包 ZIP（若安装 NSIS 也会生成安装器），便于发布给其他用户。
-
-### macOS（Apple clang + Qt frameworks）
 
 ```bash
 cd my_calib
-./tools/package_macos.sh  # 会自动把 config/ 同步到 app Resources/config
+cmake -S . -B build/macos-release -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="/path/to/Qt"
+cmake --build build/macos-release --config Release
+./build/macos-release/my_calib_gui
 ```
-
-脚本会自动检测 Qt 前缀、构建 Release 版本、调用 `macdeployqt` 与 CMake `fixup_bundle`，最后在 `build/package-mac/` 目录内输出 `.app`、`.dmg` 等便于分发的产物。若未能自动识别 Qt，请先设置 `QT_PREFIX_PATH`。
-
-`package_macos.sh` 会顺序完成 CMake 配置、构建、运行 `macdeployqt`、BundleUtilities 修复依赖以及 `cpack` 打包，无需额外命令；只要提前设置好 `QT_PREFIX_PATH`（或保证 `qtpaths6` 在 `PATH` 中）即可直接得到可分发 artefact。
 
 Optional flags:
 
 - `-DMYCALIB_ENABLE_LTO=ON` to enable link-time optimisation (if compiler supports IPO/LTO).
-- `-DMYCALIB_ENABLE_CONNECTED_CAMERA=OFF` to skip the live capture workflow when you don't need Allied Vision integration (default is ON when the Vimba X SDK is available).
 
 ## 📦 Packaging installers
 
-- **Windows**：`tools/package_windows.ps1` 已包含在上文推荐流程中，会调用 `windeployqt` 与必要的运行库复制；脚本也会将 `config/` 目录打包以便分发默认特性配置。如安装了 [NSIS](https://nsis.sourceforge.net/)，还会生成安装器。
-- **macOS**：`tools/package_macos.sh` 会生成 `.app` 与 `.dmg`，自动执行 ad-hoc 签名，并将 `config/` 复制到 `*.app/Contents/Resources/config` 以便运行时加载。
-
-两个脚本都会把产物写入 `build/package-*/` 目录（以及 `_CPack_Packages/`），并在完成时打印可交付路径，便于直接拷贝到其他机器。
+- **macOS**：执行 `tools/package_macos.sh`，脚本会自动检测 Qt 前缀、构建 Release 版本、运行 `macdeployqt`，随后调用 CMake `fixup_bundle` 补齐 OpenCV 依赖，并对应用做一次临时签名，最终生成 `.dmg` 和解压后的 `.app`。
+- **Windows**：执行 `tools/package_windows.ps1`，脚本通过 `windeployqt` 收集 Qt 运行库，同时解析 `build/CMakeCache.txt` 中的 `OpenCV_DIR` 以拷贝所需的 `opencv*.dll`，最后调用 CPack 生成 NSIS 安装包和 ZIP。
+- 两个平台都会将产物输出到 `my_calib/build/` 内的 `package`/`_CPack_Packages` 目录，脚本结束时会打印可交付的文件路径。
 
 ## 🧭 Usage
 
-1. Launch the application and follow the startup wizard to **create a new project** (defaulting to `~/Documents/MyCalib Projects/<name>`) or open an existing workspace.
-2. Once the project loads, pick a workflow mode (local images or live capture) from the top-left selector.
-  - The **Samples** tab in the capture stage始终可用，左侧面板固定展示九宫格规划器，实时汇总本地样本（含标定映射）与相机快照的覆盖情况。
-  - 点击 **Coverage overview** 随时查看九宫格统计；本地图像模式会自动叠加最新标定结果，提示待补的格位与姿态，而实时采集模式则持续显示现场快照进度。
-  - When **Live capture** mode is selected, an additional **Live capture** tab appears with the nine-grid planner, camera controls, and real-time cache preview. These controls stay hidden in local-image projects to keep the layout focused.
-3. In **local images** mode, click **Import images** to copy your calibration set into the project’s
-  `captures/calibration/` folder. Files stay alongside the project, so there’s no need to browse to other directories.
-4. Press **Run Calibration**. The GUI streams progress (delegating detection to Python) and populates the insights panel once calibration/analysis completes. When the run finishes, stage chips advance automatically and the status is saved with the project, so reopening from **Recent Projects** resumes exactly where you left off. Use the Analytics page to review heatmaps and residual plots；九宫格规划器固定在 Samples 页显示最新覆盖，而在 Live capture 模式下还会叠加相机控制与实时画面。
+1. Launch the application and use the startup wizard to create a new project (stored under `~/Documents/MyCalib Projects/<name>` by default) or open an existing workspace.
+2. Select the calibration image directory (PNG/JPEG/DNG supported via OpenCV).
+3. Adjust physical board dimensions if needed (default small circle Ø=5 mm, spacing=25 mm).
+  The circle layout (7×6 with the centre missing, 41 points total) is fixed to mirror the
+  Python implementation and requires no manual tweaks.
+4. Press **Run Calibration**. The GUI streams progress (delegating detection to Python) and
+  populates the insights panel once calibration/analysis completes.
 5. Inspect heatmaps, residual lists, and filtered sample details. Export JSON via the toolbar.
-
-> 📌 The checkerboard geometry is fixed (circle Ø = 5 mm, spacing = 25 mm, 7×6 layout with centre omitted). Outputs are written automatically under the project’s `calibration/` folder; there’s no manual output selection required.
 
 Outputs (intrinsics, heatmaps, logs) are written into `<chosen_output>/` and mirrored inside the GUI.
 Set the `MYCALIB_PYTHON` environment variable if you need to point the application to a specific
@@ -112,6 +81,13 @@ cmake --build build\win-release --config Release
 .\build\win-release\Release\my_calib_gui.exe --batch `
   --input ..\data\raw\calibration\calib_25 `
   --output ..\outputs\calibration\latest
+```
+
+```bash
+cmake --build build/macos-release --config Release
+./build/macos-release/my_calib_gui --batch \
+  --input ../data/raw/calibration/calib_25 \
+  --output ../outputs/calibration/latest
 ```
 
 Optional flags let you override board dimensions or filtering thresholds (e.g. `--diameter`,

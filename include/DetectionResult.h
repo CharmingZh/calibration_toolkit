@@ -29,6 +29,10 @@ struct DetectionResult {
     std::optional<std::vector<int>> inlierIndices;
     int iterationRemoved {0};
 
+    // Cached scalar metrics, populated when detailed residual vectors are unavailable.
+    double cachedMeanErrorPx {-1.0};
+    double cachedMaxErrorPx {-1.0};
+
     [[nodiscard]] double meanErrorPx() const;
     [[nodiscard]] double maxErrorPx() const;
         std::vector<cv::Vec2i> logicalIndices;
@@ -52,6 +56,9 @@ struct DetectionResult {
 
 inline double DetectionResult::meanErrorPx() const
 {
+    if (cachedMeanErrorPx >= 0.0) {
+        return cachedMeanErrorPx;
+    }
     if (residualsPx.empty()) {
         return 0.0;
     }
@@ -64,6 +71,9 @@ inline double DetectionResult::meanErrorPx() const
 
 inline double DetectionResult::maxErrorPx() const
 {
+    if (cachedMaxErrorPx >= 0.0) {
+        return cachedMaxErrorPx;
+    }
     if (residualsPx.empty()) {
         return 0.0;
     }

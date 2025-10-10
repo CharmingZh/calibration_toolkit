@@ -8,6 +8,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QThreadPool>
 #include <QtConcurrent>
 #include <QFuture>
@@ -64,6 +65,10 @@ struct HeatmapBundle {
 struct CalibrationOutput {
     bool success {false};
     QString message;
+    QString failureStage;
+    QStringList failureDetails;
+    QStringList detectionDiagnostics;
+    QStringList removalDiagnostics;
     cv::Mat cameraMatrix;
     cv::Mat distCoeffs;
     cv::Size imageSize {0, 0};
@@ -107,7 +112,7 @@ Q_SIGNALS:
     void progressUpdated(int processed, int total);
     void statusChanged(const QString &message);
     void finished(const CalibrationOutput &output);
-    void failed(const QString &reason);
+    void failed(const QString &reason, const CalibrationOutput &details);
 
 private:
     QString m_directory;

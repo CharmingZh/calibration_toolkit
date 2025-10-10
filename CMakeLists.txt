@@ -24,6 +24,29 @@ endif()
 find_package(Qt6 6.4 COMPONENTS Widgets Concurrent Svg REQUIRED)
 find_package(OpenCV 4.5 REQUIRED COMPONENTS calib3d imgproc highgui features2d)
 
+if(NOT DEFINED VIMBAX_SDK_DIR AND DEFINED ENV{VIMBAX_SDK_DIR})
+    set(VIMBAX_SDK_DIR "$ENV{VIMBAX_SDK_DIR}")
+endif()
+
+option(MYCALIB_ENABLE_CONNECTED_CAMERA "Enable connected camera workflow" ON)
+set(MYCALIB_CONNECTED_CAMERA_SUPPORTED ${MYCALIB_ENABLE_CONNECTED_CAMERA})
+if(MYCALIB_CONNECTED_CAMERA_SUPPORTED)
+    if(NOT DEFINED VIMBAX_SDK_DIR OR NOT EXISTS "${VIMBAX_SDK_DIR}")
+        message(WARNING "Vimba X SDK directory not configured. Connected camera workflow will be disabled.")
+        set(MYCALIB_CONNECTED_CAMERA_SUPPORTED OFF)
+    endif()
+endif()
+
+if(MYCALIB_CONNECTED_CAMERA_SUPPORTED)
+    message(STATUS "Connected camera workflow: enabled (Vimba X SDK detected)")
+else()
+    if(MYCALIB_ENABLE_CONNECTED_CAMERA)
+        message(STATUS "Connected camera workflow: disabled (Vimba X SDK missing)")
+    else()
+        message(STATUS "Connected camera workflow: disabled by configuration")
+    endif()
+endif()
+
 include(GNUInstallDirs)
 
 set(MYCALIB_SOURCES
@@ -41,6 +64,9 @@ set(MYCALIB_SOURCES
     src/ParameterDialog.cpp
     src/ImageEvaluationDialog.cpp
     src/PaperFigureExporter.cpp
+    src/ProjectSession.cpp
+    src/ProjectHistory.cpp
+    src/ProjectBootstrapDialog.cpp
 )
 
 set(MYCALIB_HEADERS
@@ -59,7 +85,36 @@ set(MYCALIB_HEADERS
     include/ParameterDialog.h
     include/ImageEvaluationDialog.h
     include/PaperFigureExporter.h
+    include/ProjectSession.h
+    include/ProjectHistory.h
+    include/ProjectBootstrapDialog.h
 )
+
+if(MYCALIB_CONNECTED_CAMERA_SUPPORTED)
+    list(APPEND MYCALIB_SOURCES
+        src/camera/CameraWindow.cpp
+        src/camera/FeaturePanel.cpp
+        src/camera/ImageView.cpp
+        src/camera/StatusDashboard.cpp
+        src/camera/Utils.cpp
+        src/camera/VimbaController.cpp
+        src/camera/focus/FocusAssistWindow.cpp
+        src/camera/focus/FocusEvaluator.cpp
+    src/camera/focus/FocusSummaryPanel.cpp
+    )
+
+    list(APPEND MYCALIB_HEADERS
+        include/camera/CameraWindow.h
+        include/camera/FeaturePanel.h
+        include/camera/ImageView.h
+        include/camera/StatusDashboard.h
+        include/camera/Utils.h
+        include/camera/VimbaController.h
+        include/camera/focus/FocusAssistWindow.h
+        include/camera/focus/FocusEvaluator.h
+        include/camera/focus/FocusSummaryPanel.h
+    )
+endif()
 
 set(MYCALIB_RESOURCES
     src/resources.qrc
@@ -115,6 +170,47 @@ target_link_libraries(my_calib_gui PRIVATE
     Qt6::Svg
     ${OpenCV_LIBS}
 )
+
+if(MYCALIB_CONNECTED_CAMERA_SUPPORTED)
+    set(VIMBAX_INCLUDE
+        "${VIMBAX_SDK_DIR}/api/include"
+        "${VIMBAX_SDK_DIR}/api/include/VmbCPP"
+        "${VIMBAX_SDK_DIR}/api/include/VmbImageTransform"
+    )
+
+    if(WIN32)
+        set(VIMBAX_LIB_DIR "${VIMBAX_SDK_DIR}/api/lib")
+        if(CMAKE_SIZEOF_VOID_P EQUAL 8 AND EXISTS "${VIMBAX_SDK_DIR}/api/lib/Win64")
+            set(VIMBAX_LIB_DIR "${VIMBAX_SDK_DIR}/api/lib/Win64")
+        elseif(CMAKE_SIZEOF_VOID_P EQUAL 4 AND EXISTS "${VIMBAX_SDK_DIR}/api/lib/Win32")
+            set(VIMBAX_LIB_DIR "${VIMBAX_SDK_DIR}/api/lib/Win32")
+        endif()
+    elseif(APPLE)
+        set(VIMBAX_LIB_DIR "${VIMBAX_SDK_DIR}/api/lib/MacOSX")
+    else()
+        set(VIMBAX_LIB_DIR "${VIMBAX_SDK_DIR}/api/lib/Linux64")
+    endif()
+
+    target_include_directories(my_calib_gui PRIVATE ${VIMBAX_INCLUDE})
+    target_link_directories(my_calib_gui PRIVATE ${VIMBAX_LIB_DIR})
+    target_link_libraries(my_calib_gui PRIVATE VmbCPP VmbC VmbImageTransform)
+
+    if(WIN32)
+        file(GLOB VIMBAX_RUNTIME_DLLS "${VIMBAX_SDK_DIR}/api/bin/*.dll")
+        foreach(dll ${VIMBAX_RUNTIME_DLLS})
+            add_custom_command(TARGET my_calib_gui POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${dll}"
+                    "$<TARGET_FILE_DIR:my_calib_gui>")
+        endforeach()
+    endif()
+endif()
+
+if(MYCALIB_CONNECTED_CAMERA_SUPPORTED)
+    target_compile_definitions(my_calib_gui PRIVATE MYCALIB_HAVE_CONNECTED_CAMERA=1)
+else()
+    target_compile_definitions(my_calib_gui PRIVATE MYCALIB_HAVE_CONNECTED_CAMERA=0)
+endif()
 
 target_compile_definitions(my_calib_gui PRIVATE QT_NO_KEYWORDS)
 

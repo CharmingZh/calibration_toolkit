@@ -40,6 +40,17 @@ if (-not (Test-Path $exePath)) {
 
 & $windeploy --release --verbose 1 --dir (Split-Path $exePath -Parent) $exePath
 
+$configSource = Join-Path $ProjectRoot 'config'
+if (Test-Path $configSource) {
+    $configTarget = Join-Path (Split-Path $exePath -Parent) 'config'
+    Write-Host "Copying configuration profiles to package..." -ForegroundColor DarkCyan
+    if (Test-Path $configTarget) {
+        Remove-Item -Path $configTarget -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $configTarget | Out-Null
+    Copy-Item -Path (Join-Path $configSource '*') -Destination $configTarget -Recurse -Force
+}
+
 # 复制 OpenCV 运行库（如果可用）
 $cacheFile = Join-Path $BuildDir 'CMakeCache.txt'
 if (Test-Path $cacheFile) {

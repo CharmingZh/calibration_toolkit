@@ -4,12 +4,16 @@
 #include <QCoreApplication>
 #include <QFile>
 #include <QFontDatabase>
+#include <QMessageBox>
 #include <QTextStream>
 
 #include <cmath>
 
 #include "CalibrationEngine.h"
 #include "MainWindow.h"
+#include "ProjectBootstrapDialog.h"
+#include "ProjectHistory.h"
+#include "ProjectSession.h"
 
 namespace {
 
@@ -165,7 +169,37 @@ int main(int argc, char *argv[])
         app.setStyleSheet(QString::fromUtf8(themeFile.readAll()));
     }
 
-    mycalib::MainWindow window;
+    mycalib::ProjectSession session;
+
+    while (true) {
+        mycalib::ProjectBootstrapDialog dialog;
+        const auto choice = dialog.run();
+        if (!choice.accepted) {
+            return 0;
+        }
+
+        QString error;
+        bool ok = false;
+        if (choice.createNew) {
+            ok = session.initializeNew(choice.projectDirectory,
+                                       choice.projectName,
+                                       choice.dataSource,
+                                       &error);
+        } else {
+            ok = session.loadExisting(choice.projectDirectory, &error);
+        }
+
+        if (ok) {
+            mycalib::recordProjectHistoryEntry(session.rootPath(), session.metadata().projectName);
+            break;
+        }
+
+        QMessageBox::critical(nullptr,
+                               QObject::tr("Project error"),
+                               error.isEmpty() ? QObject::tr("Failed to load project.") : error);
+    }
+
+    mycalib::MainWindow window(&session);
     window.resize(1480, 940);
     window.show();
 

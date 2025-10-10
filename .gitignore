@@ -1,0 +1,31 @@
+/.idea/
+/.vscode/
+/.DS_Store
+Thumbs.db
+
+# Build outputs
+/build/
+/build-*/
+/out/
+/outputs/
+/x64/
+/Release/
+
+# Visual Studio generated files
+*.suo
+*.user
+*.userosscache
+*.VC.db
+*.VC.opendb
+
+# Qt Creator/CLion CMake caches
+CMakeFiles/
+CMakeCache.txt
+cmake-build-*/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local examples or experiments
+example_code/

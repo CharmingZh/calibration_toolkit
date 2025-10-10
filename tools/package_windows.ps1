@@ -209,6 +209,17 @@ if ($env:VCINSTALLDIR) {
 }
 & $windeploy @windeployArgs
 
+$configSource = Join-Path $ProjectRoot 'config'
+if (Test-Path $configSource) {
+    $configTarget = Join-Path $releaseDir 'config'
+    Write-Host "Copying configuration profiles to package..." -ForegroundColor DarkCyan
+    if (Test-Path $configTarget) {
+        Remove-Item -Path $configTarget -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $configTarget | Out-Null
+    Copy-Item -Path (Join-Path $configSource '*') -Destination $configTarget -Recurse -Force
+}
+
 $platformDir = Join-Path $releaseDir 'platforms'
 if (-not (Test-Path $platformDir)) {
     New-Item -ItemType Directory -Path $platformDir | Out-Null

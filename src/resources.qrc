@@ -7,7 +7,15 @@
         <file alias="play.svg">../resources/icons/play.svg</file>
         <file alias="export.svg">../resources/icons/export.svg</file>
         <file alias="reset.svg">../resources/icons/reset.svg</file>
-    <file alias="app.png">../resources/icons/app_icon.png</file>
+        <file alias="app.png">../resources/icons/app_icon.png</file>
         <file alias="evaluate.svg">../resources/icons/evaluate.svg</file>
+        <file alias="camera_open.svg">../resources/icons/camera_open.svg</file>
+        <file alias="camera_close.svg">../resources/icons/camera_close.svg</file>
+        <file alias="stream_start.svg">../resources/icons/stream_start.svg</file>
+        <file alias="stream_stop.svg">../resources/icons/stream_stop.svg</file>
+        <file alias="snapshot.svg">../resources/icons/snapshot.svg</file>
+        <file alias="refresh.svg">../resources/icons/refresh.svg</file>
+        <file alias="frame_rate.svg">../resources/icons/frame_rate.svg</file>
+        <file alias="info.svg">../resources/icons/info.svg</file>
     </qresource>
 </RCC>

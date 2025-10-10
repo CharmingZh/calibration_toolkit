@@ -17,6 +17,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStringList>
+#include <QHash>
 #include <QtConcurrent/QtConcurrent>
 
 #include <opencv2/calib3d.hpp>
@@ -304,7 +305,7 @@ CalibrationEngine::CalibrationEngine(QObject *parent)
         if (result.success) {
             Q_EMIT finished(result);
         } else {
-            Q_EMIT failed(result.message);
+            Q_EMIT failed(result.message, result);
         }
     });
 }
@@ -396,6 +397,12 @@ CalibrationOutput CalibrationEngine::executePipeline()
             abortLogged = true;
         }
         output.message = tr("Calibration aborted");
+        if (output.failureStage.isEmpty()) {
+            output.failureStage = tr("用户取消");
+        }
+        if (output.failureDetails.isEmpty()) {
+            output.failureDetails = {tr("处理过程中被手动中止。")};
+        }
         return true;
     };
 
@@ -421,6 +428,11 @@ CalibrationOutput CalibrationEngine::executePipeline()
         const auto paths = collectImagePaths(m_directory);
         if (paths.empty()) {
             output.message = tr("No images found in directory");
+            output.failureStage = tr("图像收集");
+            output.failureDetails = {
+                tr("目录：%1").arg(m_directory),
+                tr("未找到支持的图像格式（png/jpg/jpeg/bmp/tif/tiff）。")
+            };
             return output;
         }
 
@@ -501,14 +513,57 @@ CalibrationOutput CalibrationEngine::executePipeline()
                              .arg(durationsMs.size()));
         }
 
+        QStringList detectionDiagnostics;
+        detectionDiagnostics << tr("检测阶段：总计 %1 张，成功 %2，失败 %3")
+                                  .arg(total)
+                                  .arg(successCount)
+                                  .arg(failureCount);
+
         if (failureCount > 0) {
             Logger::warning(QStringLiteral("Failed detections:"));
+            QHash<QString, int> reasonCounts;
+            QStringList failingExamples;
             for (const auto &rec : detections) {
                 if (!rec.success) {
+                    QString reason = QString::fromStdString(rec.message);
+                    reason = reason.trimmed();
+                    if (reason.isEmpty()) {
+                        reason = tr("原因未知");
+                    }
+                    reasonCounts[reason] += 1;
+                    if (failingExamples.size() < 5) {
+                        failingExamples << QStringLiteral("%1 (%2)")
+                                              .arg(QString::fromStdString(rec.name))
+                                              .arg(reason);
+                    }
                     Logger::warning(QStringLiteral(" - %1: %2")
                                         .arg(QString::fromStdString(rec.name))
-                                        .arg(QString::fromStdString(rec.message)));
+                                        .arg(reason));
                 }
+            }
+
+            QVector<QPair<QString, int>> reasonList;
+            reasonList.reserve(reasonCounts.size());
+            for (auto it = reasonCounts.constBegin(); it != reasonCounts.constEnd(); ++it) {
+                reasonList.append(qMakePair(it.key(), it.value()));
+            }
+            std::sort(reasonList.begin(), reasonList.end(), [](const auto &a, const auto &b) {
+                if (a.second == b.second) {
+                    return a.first < b.first;
+                }
+                return a.second > b.second;
+            });
+
+            QStringList reasonLines;
+            const int maxReasons = std::min(3, static_cast<int>(reasonList.size()));
+            for (int i = 0; i < maxReasons; ++i) {
+                reasonLines << tr("%1 × %2").arg(reasonList[i].first).arg(reasonList[i].second);
+            }
+            if (!reasonLines.isEmpty()) {
+                detectionDiagnostics << tr("失败原因统计：%1").arg(reasonLines.join(QStringLiteral("；")));
+            }
+            if (!failingExamples.isEmpty()) {
+                detectionDiagnostics << tr("失败样本示例：%1").arg(failingExamples.join(QStringLiteral("；")));
             }
         }
         Logger::info(QStringLiteral("=== Detection summary complete ==="));
@@ -519,7 +574,15 @@ CalibrationOutput CalibrationEngine::executePipeline()
 
         Q_EMIT statusChanged(tr("Calibrating camera"));
         output = calibrate(detections);
+        output.detectionDiagnostics = detectionDiagnostics;
         if (!output.success) {
+            output.failureStage = tr("初始标定");
+            QStringList details = detectionDiagnostics;
+            details.prepend(tr("有效检测图像：%1 / %2（至少需要 %3 张可用于求解）。")
+                                .arg(successCount)
+                                .arg(total)
+                                .arg(m_settings.minSamples));
+            output.failureDetails = details;
             return output;
         }
 
@@ -592,6 +655,12 @@ CalibrationOutput CalibrationEngine::executePipeline()
     } catch (const std::exception &ex) {
         output.success = false;
         output.message = QString::fromUtf8(ex.what());
+        if (output.failureStage.isEmpty()) {
+            output.failureStage = tr("内部异常");
+        }
+        if (output.failureDetails.isEmpty()) {
+            output.failureDetails = {tr("异常信息：%1").arg(output.message)};
+        }
         return output;
     }
 }
@@ -722,6 +791,7 @@ CalibrationOutput CalibrationEngine::filterAndRecalibrate(CalibrationOutput &&in
         }
         input.success = false;
         input.message = tr("Calibration aborted");
+        input.failureStage = tr("鲁棒迭代");
         return true;
     };
 
@@ -843,6 +913,30 @@ CalibrationOutput CalibrationEngine::filterAndRecalibrate(CalibrationOutput &&in
     input.removedDetections = removed;
     input.success = true;
     input.message = tr("Robust calibration complete");
+
+    if (!removed.empty()) {
+        QStringList removalNotes;
+        removalNotes << tr("鲁棒迭代剔除 %1 张，保留 %2 张参与最终求解。")
+                             .arg(static_cast<int>(removed.size()))
+                             .arg(static_cast<int>(kept.size()));
+    const int previewCount = std::min(static_cast<int>(removed.size()), 5);
+        for (int i = 0; i < previewCount; ++i) {
+            const auto &rec = removed[static_cast<size_t>(i)];
+            removalNotes << tr("%1 · iter %2 · mean=%3 px · max=%4 px")
+                                 .arg(QString::fromStdString(rec.name))
+                                 .arg(rec.iterationRemoved)
+                                 .arg(rec.meanErrorPx(), 0, 'f', 3)
+                                 .arg(rec.maxErrorPx(), 0, 'f', 3);
+        }
+        if (removed.size() > static_cast<size_t>(previewCount)) {
+            removalNotes << tr("……其余 %1 张详见导出报告。")
+                                 .arg(static_cast<int>(removed.size() - previewCount));
+        }
+        input.removalDiagnostics = removalNotes;
+    } else {
+        input.removalDiagnostics.clear();
+    }
+
     Logger::info(QStringLiteral("Robust optimisation complete: kept %1 | removed %2 | final RMS=%3 px | Mean=%4 px | Median=%5 px | Max=%6 px")
                      .arg(static_cast<int>(input.keptDetections.size()))
                      .arg(static_cast<int>(input.removedDetections.size()))
